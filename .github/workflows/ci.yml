@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · mvn verify (JDK 21)
+    runs-on: ubuntu-latest
+
+    # The migrations and the JPA mappings are only meaningfully tested against
+    # a real PostgreSQL. An in-memory database accepts SQL that production
+    # rejects, which is how a broken migration reaches a server.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: saicomex
+          POSTGRES_USER: comex_admin
+          POSTGRES_PASSWORD: ci-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U comex_admin -d saicomex"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Not -DskipTests. The deploy path uses that flag for speed, which is
+      # exactly why CI must not: the commercial calculation engine's test suite
+      # is the only thing standing between a refactor and a wrong partner
+      # statement.
+      - name: Build and test
+        working-directory: saicomex-api
+        run: mvn -B --no-transfer-progress verify
+
+      - name: Verify migrations apply to a clean PostgreSQL
+        working-directory: saicomex-api
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/saicomex
+          DB_USER: comex_admin
+          DB_PASSWORD: ci-password
+        run: |
+          mvn -B --no-transfer-progress \
+            org.flywaydb:flyway-maven-plugin:10.10.0:migrate \
+            -Dflyway.url="$DB_URL" \
+            -Dflyway.user="$DB_USER" \
+            -Dflyway.password="$DB_PASSWORD" \
+            -Dflyway.locations=filesystem:src/main/resources/db/migration
+
+      - name: Upload surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: saicomex-api/target/surefire-reports/
+
+  frontend:
+    name: Frontend · ng build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: saicomex-ui/package-lock.json
+
+      - name: Install
+        working-directory: saicomex-ui
+        run: npm ci
+
+      - name: Build
+        working-directory: saicomex-ui
+        run: npm run build -- --configuration production
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A password committed to a settings or config file is the failure this
+      # repository was set up to avoid. Cheap check, catches the common shapes.
+      - name: Look for committed credentials
+        run: |
+          set +e
+          PATTERN='(password|passwd|secret|api[_-]?key)["'\'':= ]+[A-Za-z0-9_\-\.\/\+]{8,}'
+          MATCHES=$(grep -rEIn --exclude-dir=.git --exclude-dir=node_modules \
+                    --exclude='*.example' --exclude='package-lock.json' \
+                    "$PATTERN" . \
+                    | grep -vE '\$\{|:\?|changeme|<[^>]+>|placeholder|example|YOUR_|xxx')
+          if [ -n "$MATCHES" ]; then
+            echo "Possible committed credential:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "No obvious credentials found."

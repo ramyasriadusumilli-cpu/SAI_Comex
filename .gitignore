@@ -1,0 +1,41 @@
+# --- secrets: never commit -------------------------------------------------
+.env
+*.env
+!deploy/.env.example
+*.pem
+*.key
+id_rsa*
+.claude/settings.local.json
+
+# --- build output ----------------------------------------------------------
+target/
+dist/
+node_modules/
+.angular/
+*.jar
+*.war
+*.class
+
+# --- database dumps and backups --------------------------------------------
+# A production dump contains every partner's banking detail and every
+# settlement figure. It does not belong in a repository.
+*.dump
+*.sql.gz
+deploy/backups/
+db-backups/
+
+# --- editors and OS --------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- logs and scratch ------------------------------------------------------
+*.log
+logs/
+tmp/
+.scratch/
+__pycache__/
+*.pyc

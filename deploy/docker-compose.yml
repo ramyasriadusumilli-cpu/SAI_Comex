@@ -1,0 +1,178 @@
+# SAIComex Mining Platform — production stack.
+#
+# Lives at /opt/saicomex/docker-compose.yml on the Hetzner VPS, alongside the
+# SAI Fleet stacks in /opt/fleet-rental and /opt/fleet-rental-uat.
+#
+# PORTS — every published port is bound to 127.0.0.1 so nothing is reachable
+# from the internet except through the host nginx, which terminates TLS. These
+# were chosen to avoid the fleet system's ports (8080/8081, 9090/9091, 5432/
+# 5433, 9100/9101); check `ss -lntp` before changing any of them.
+#
+#   8090  API            (fleet prod uses 8080, fleet UAT 9090)
+#   8091  frontend       (fleet prod uses 8081, fleet UAT 9091)
+#   5434  postgres       (fleet prod uses 5432, fleet UAT 5433)
+#   9200  MinIO API      (fleet uses 9100/9101)
+#   9201  MinIO console
+#
+# Secrets come from /opt/saicomex/.env, which is chmod 600 and NOT in git.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-saicomex}
+      POSTGRES_USER: ${DB_USER:-comex_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in /opt/saicomex/.env}
+      # Deterministic collation: an index built under a different locale sorts
+      # differently, which is a very quiet way to corrupt a unique constraint.
+      LANG: C.UTF-8
+    command: >
+      postgres -c max_connections=60
+               -c shared_buffers=192MB
+               -c work_mem=8MB
+               -c maintenance_work_mem=64MB
+    volumes:
+      - comex-pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "127.0.0.1:5434:5432"
+    networks: [comex]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-comex_admin} -d ${DB_NAME:-saicomex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  minio:
+    image: minio/minio:latest
+    container_name: comex-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
+      # Must be the PUBLIC https URL, not a docker hostname: presigned document
+      # URLs are opened by the operator's browser, which cannot resolve `minio`.
+      # Getting this wrong breaks every upload, view and delete at once, and it
+      # fails silently until someone tries to open an attachment.
+      MINIO_SERVER_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env}/comex-files
+      MINIO_BROWSER_REDIRECT_URL: ${PUBLIC_URL}/comex-console
+    volumes:
+      - comex-minio:/data
+    ports:
+      - "127.0.0.1:9200:9000"
+      - "127.0.0.1:9201:9001"
+    networks: [comex]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  api:
+    image: saicomex-api:latest
+    container_name: comex-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-saicomex}
+      DB_USER: ${DB_USER:-comex_admin}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — at least 32 characters}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL}
+      REPORTING_CURRENCY: ${REPORTING_CURRENCY:-USD}
+      MINIO_ENDPOINT: ${PUBLIC_URL}/comex-files
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-comex-files}
+      RESET_URL: ${PUBLIC_URL}/reset-password
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@saicomex.com}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@saicomex.com}
+      # Demo data never seeds against a database that already has projects, but
+      # leave this false in production regardless.
+      DEMO_DATA_ENABLED: "false"
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
+      TZ: ${TZ:-Africa/Johannesburg}
+    ports:
+      - "127.0.0.1:8090:8080"
+    networks: [comex]
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  frontend:
+    image: saicomex-ui:latest
+    container_name: comex-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8091:80"
+    networks: [comex]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  db-backup:
+    image: postgres:16-alpine
+    container_name: comex-db-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER:-comex_admin}
+      PGPASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      PGDATABASE: ${DB_NAME:-saicomex}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /backup.sh <<'EOS'
+        #!/bin/sh
+        set -e
+        STAMP=$$(date +%Y%m%d-%H%M)
+        pg_dump --format=custom --file=/backups/saicomex-$$STAMP.dump
+        # Keep 14 days. A backup nobody prunes fills the disk, and a full disk
+        # takes the database down — which is the thing the backup was for.
+        find /backups -name 'saicomex-*.dump' -mtime +14 -delete
+        echo "[backup] wrote saicomex-$$STAMP.dump"
+        EOS
+        chmod +x /backup.sh
+        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+        echo "[entrypoint] nightly backup scheduled for 02:00"
+        crond -f -l 2
+    networks: [comex]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  comex-pgdata:
+  comex-minio:
+
+networks:
+  comex:
+    driver: bridge

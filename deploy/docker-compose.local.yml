@@ -1,0 +1,47 @@
+# Local development dependencies only — postgres and MinIO.
+#
+# The API and the UI run on the host (mvn spring-boot:run / ng serve) so they
+# can be restarted and debugged without a rebuild. Bring these up first:
+#
+#   docker compose -f deploy/docker-compose.local.yml up -d
+#
+# Ports deliberately differ from the production stack AND from the fleet
+# system's local containers, so all three can run on one machine at once.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comex-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: saicomex
+      POSTGRES_USER: comex_admin
+      POSTGRES_PASSWORD: changeme
+      LANG: C.UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      - comex-pgdata-local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comex_admin -d saicomex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: comex-minio-local
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: comexadmin
+      MINIO_ROOT_PASSWORD: comexpassword123
+    ports:
+      - "9200:9000"
+      - "9201:9001"
+    volumes:
+      - comex-minio-local:/data
+
+volumes:
+  comex-pgdata-local:
+  comex-minio-local:
