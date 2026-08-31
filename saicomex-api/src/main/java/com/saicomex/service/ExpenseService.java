@@ -92,7 +92,24 @@ public class ExpenseService {
     @Transactional
     public ExpenseDetail create(ExpenseRequest req) {
         permissions.require("expenses.create");
+        return doCreate(req);
+    }
 
+    /**
+     * Create an expense on behalf of another module — e.g. the expense a fuel
+     * issue produces alongside its stock movement. The CALLER authorises the
+     * compound action (a fuel issuer holds {@code fuel.create}, not
+     * {@code expenses.create}), so this deliberately does not re-gate on
+     * {@code expenses.create}. Numbering, the frozen base amount, the DIRECT
+     * allocation row and the audit entry are identical to a user-entered
+     * expense, so the settlement engine and every cost report treat it the same.
+     */
+    @Transactional
+    public ExpenseDetail createFor(ExpenseRequest req) {
+        return doCreate(req);
+    }
+
+    private ExpenseDetail doCreate(ExpenseRequest req) {
         if (req.clientUuid() != null && !req.clientUuid().isBlank()) {
             var existing = expenseRepository.findByClientUuidAndDeletedAtIsNull(req.clientUuid());
             if (existing.isPresent()) return toDetail(existing.get());
