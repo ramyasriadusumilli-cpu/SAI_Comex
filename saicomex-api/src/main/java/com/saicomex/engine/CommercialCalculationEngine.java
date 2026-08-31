@@ -9,9 +9,11 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -87,8 +89,14 @@ public class CommercialCalculationEngine {
     private static final Set<String> SAICOMEX_RETENTIONS =
             Set.of("MANAGEMENT_FEE", "CAPITAL_RECOVERY");
 
-    private static final DecimalFormat MONEY   = new DecimalFormat("#,##0.00");
-    private static final DecimalFormat PERCENT = new DecimalFormat("0.######");
+    // Pinned to a fixed locale so settlement-statement figures render
+    // identically on every host. DecimalFormat() with no symbols uses the
+    // JVM's ambient default locale, which turned partner statements into
+    // "8 000,00" on a za/af-locale host and "8,000.00" on a US one — the
+    // formatting of a financial document must never depend on where it runs.
+    private static final DecimalFormatSymbols SYMBOLS = DecimalFormatSymbols.getInstance(Locale.US);
+    private static final DecimalFormat MONEY   = new DecimalFormat("#,##0.00", SYMBOLS);
+    private static final DecimalFormat PERCENT = new DecimalFormat("0.######", SYMBOLS);
 
     public CalculationResult calculate(CalculationInput in) {
         CommercialAgreement agreement = in.agreement();
