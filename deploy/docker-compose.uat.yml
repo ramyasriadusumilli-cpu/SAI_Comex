@@ -1,0 +1,184 @@
+# SAIComex Mining Platform — UAT stack.
+#
+# Lives at /opt/saicomex-uat/docker-compose.yml on the Hetzner VPS, alongside
+# the production stack in /opt/saicomex and the two SAI Fleet stacks in
+# /opt/fleet-rental and /opt/fleet-rental-uat.
+#
+# This is a byte-for-byte sibling of the production docker-compose.yml with
+# three differences and nothing else: container names carry a `-uat` suffix,
+# published ports are shifted so they never collide with prod or fleet, and the
+# named volumes are separate so UAT data can never touch production data. Keep
+# it that way — if you change the prod compose, mirror the change here.
+#
+# PORTS — every published port is bound to 127.0.0.1; the host nginx terminates
+# TLS and is the only thing reachable from the internet. UAT ports sit two above
+# prod's, clear of everything already on the box (`ss -lntp` to confirm):
+#
+#   8092  API            (prod 8090, fleet prod 8080, fleet UAT 9090)
+#   8093  frontend       (prod 8091, fleet prod 8081, fleet UAT 9091)
+#   5435  postgres       (prod 5434, fleet prod 5432, fleet UAT 5433)
+#   9202  MinIO API      (prod 9200, fleet 9100/9101)
+#   9203  MinIO console  (prod 9201)
+#
+# Secrets come from /opt/saicomex-uat/.env — a DIFFERENT file, with DIFFERENT
+# secrets from prod, chmod 600 and NOT in git. A UAT that shares prod's
+# JWT_SECRET or DB password is not a separate environment.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comex-postgres-uat
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-saicomex}
+      POSTGRES_USER: ${DB_USER:-comex_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in /opt/saicomex-uat/.env}
+      # Deterministic collation: an index built under a different locale sorts
+      # differently, which is a very quiet way to corrupt a unique constraint.
+      LANG: C.UTF-8
+    command: >
+      postgres -c max_connections=40
+               -c shared_buffers=128MB
+               -c work_mem=8MB
+               -c maintenance_work_mem=48MB
+    volumes:
+      - comex-pgdata-uat:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "127.0.0.1:5435:5432"
+    networks: [comex-uat]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-comex_admin} -d ${DB_NAME:-saicomex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  minio:
+    image: minio/minio:latest
+    container_name: comex-minio-uat
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
+      # Must be the PUBLIC https URL, not a docker hostname: presigned document
+      # URLs are opened by the operator's browser, which cannot resolve `minio`.
+      MINIO_SERVER_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env}/comex-files
+      MINIO_BROWSER_REDIRECT_URL: ${PUBLIC_URL}/comex-console
+    volumes:
+      - comex-minio-uat:/data
+    ports:
+      - "127.0.0.1:9202:9000"
+      - "127.0.0.1:9203:9001"
+    networks: [comex-uat]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  api:
+    image: saicomex-api:latest
+    container_name: comex-api-uat
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-saicomex}
+      DB_USER: ${DB_USER:-comex_admin}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — at least 32 characters}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL}
+      REPORTING_CURRENCY: ${REPORTING_CURRENCY:-USD}
+      MINIO_ENDPOINT: ${PUBLIC_URL}/comex-files
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-comex-files}
+      RESET_URL: ${PUBLIC_URL}/reset-password
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@saicomex.com}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@saicomex.com}
+      # UAT is where realistic-but-fake data is welcome; flip to "true" on a
+      # fresh UAT database if you want the dashboard populated for a demo.
+      DEMO_DATA_ENABLED: ${DEMO_DATA_ENABLED:-false}
+      # Swagger is genuinely useful in UAT; still defaults off, turn on per .env.
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      JAVA_OPTS: "-Xms192m -Xmx448m -XX:+UseG1GC"
+      TZ: ${TZ:-Africa/Johannesburg}
+    ports:
+      - "127.0.0.1:8092:8080"
+    networks: [comex-uat]
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+
+  frontend:
+    image: saicomex-ui:latest
+    container_name: comex-frontend-uat
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8093:80"
+    networks: [comex-uat]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  db-backup:
+    image: postgres:16-alpine
+    container_name: comex-db-backup-uat
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER:-comex_admin}
+      PGPASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      PGDATABASE: ${DB_NAME:-saicomex}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /backup.sh <<'EOS'
+        #!/bin/sh
+        set -e
+        STAMP=$$(date +%Y%m%d-%H%M)
+        pg_dump --format=custom --file=/backups/saicomex-uat-$$STAMP.dump
+        # UAT keeps a shorter tail than prod — 7 days is plenty for a test box.
+        find /backups -name 'saicomex-uat-*.dump' -mtime +7 -delete
+        echo "[backup] wrote saicomex-uat-$$STAMP.dump"
+        EOS
+        chmod +x /backup.sh
+        echo "0 3 * * * /backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+        echo "[entrypoint] nightly UAT backup scheduled for 03:00"
+        crond -f -l 2
+    networks: [comex-uat]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  comex-pgdata-uat:
+  comex-minio-uat:
+
+networks:
+  comex-uat:
+    driver: bridge
