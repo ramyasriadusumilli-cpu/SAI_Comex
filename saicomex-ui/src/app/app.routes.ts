@@ -150,6 +150,27 @@ export const routes: Routes = [
       },
 
       {
+        path: 'inventory/items',
+        canActivate: [permissionGuard('inventory.view')],
+        loadComponent: () => import('./pages/inventory/item-list').then(m => m.InventoryItemListPage),
+      },
+      {
+        path: 'inventory/stores',
+        canActivate: [permissionGuard('inventory.view')],
+        loadComponent: () => import('./pages/inventory/store-list').then(m => m.StoreListPage),
+      },
+      {
+        path: 'inventory/stock',
+        canActivate: [permissionGuard('inventory.view')],
+        loadComponent: () => import('./pages/inventory/stock').then(m => m.StockPage),
+      },
+      {
+        path: 'fuel',
+        canActivate: [permissionGuard('fuel.view')],
+        loadComponent: () => import('./pages/inventory/fuel-list').then(m => m.FuelListPage),
+      },
+
+      {
         path: 'users',
         canActivate: [permissionGuard('users.view')],
         loadComponent: () => import('./pages/admin/user-list').then(m => m.UserListPage),

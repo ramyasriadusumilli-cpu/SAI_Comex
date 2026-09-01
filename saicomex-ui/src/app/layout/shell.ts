@@ -181,6 +181,15 @@ export class Shell {
       ],
     },
     {
+      label: 'Inventory & Fuel',
+      items: [
+        { label: 'Items', icon: 'production', route: '/inventory/items', permission: 'inventory.view' },
+        { label: 'Stores', icon: 'folder', route: '/inventory/stores', permission: 'inventory.view' },
+        { label: 'Stock', icon: 'balance', route: '/inventory/stock', permission: 'inventory.view' },
+        { label: 'Fuel', icon: 'sell', route: '/fuel', permission: 'fuel.view' },
+      ],
+    },
+    {
       label: 'Commercial',
       items: [
         { label: 'Partners', icon: 'handshake', route: '/partners', permission: 'partners.view' },

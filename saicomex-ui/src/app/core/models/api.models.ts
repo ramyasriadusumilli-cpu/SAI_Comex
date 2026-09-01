@@ -707,3 +707,97 @@ export interface ReferenceData {
   operationTypes: string[];
   reportDefinitions: { code: string; name: string; reportGroup: string }[];
 }
+
+// ------------------------------------------------------------ Phase 2: Inventory & Fuel
+
+export interface InventoryItem {
+  id: number;
+  code: string;
+  name: string;
+  itemType: string;
+  categoryId?: number;
+  unit: string;
+  isControlled: boolean;
+  requiresPermit: boolean;
+  minimumStock?: number;
+  maximumStock?: number;
+  reorderLevel?: number;
+  standardCost?: number;
+  costCurrency?: string;
+  valuationMethod: string;
+  isActive: boolean;
+  notes?: string;
+}
+
+export interface StoreLocation {
+  id: number;
+  code: string;
+  name: string;
+  projectId?: number;
+  shaftId?: number;
+  locationId?: number;
+  storeType: string;
+  keeperUserId?: number;
+  isActive: boolean;
+}
+
+export interface StockTransaction {
+  id: number;
+  transactionNumber: string;
+  itemId: number;
+  itemCode?: string;
+  itemName?: string;
+  storeId: number;
+  storeName?: string;
+  transactionType: string;
+  transactionDate: string;
+  quantity: number;
+  unitCost?: number;
+  totalCost?: number;
+  currency?: string;
+  balanceAfter?: number;
+  shaftId?: number;
+  expenseId?: number;
+  permitReference?: string;
+  recipientName?: string;
+  reason: string;
+  reference?: string;
+  createdBy?: string;
+}
+
+export interface StockBalance {
+  itemId: number;
+  itemCode?: string;
+  itemName?: string;
+  unit?: string;
+  storeId: number;
+  storeName?: string;
+  quantity: number;
+  averageCost: number;
+  costCurrency?: string;
+  lastMovementAt?: string;
+}
+
+export interface FuelTransaction {
+  id: number;
+  transactionType: string;
+  transactionDate: string;
+  fuelType: string;
+  itemId: number;
+  storeId: number;
+  quantityLitres: number;
+  unitCost?: number;
+  totalCost?: number;
+  currency?: string;
+  projectId?: number;
+  shaftId?: number;
+  equipmentId?: number;
+  inventoryTransactionId?: number;
+  expenseId?: number;
+  odometerReading?: number;
+  hourMeterReading?: number;
+  openingStock?: number;
+  closingStock?: number;
+  reference?: string;
+  createdBy?: string;
+}

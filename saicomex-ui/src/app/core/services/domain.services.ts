@@ -117,6 +117,34 @@ export class TransactionApi {
 }
 
 @Injectable({ providedIn: 'root' })
+export class InventoryApi {
+  private api = inject(ApiService);
+  items(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.InventoryItem>>('/inventory/items', params); }
+  item(id: number) { return this.api.get<M.InventoryItem>(`/inventory/items/${id}`); }
+  createItem(body: unknown) { return this.api.post<M.InventoryItem>('/inventory/items', body); }
+  updateItem(id: number, body: unknown) { return this.api.put<M.InventoryItem>(`/inventory/items/${id}`, body); }
+
+  stores(params?: Record<string, unknown>) { return this.api.get<M.StoreLocation[]>('/inventory/stores', params); }
+  createStore(body: unknown) { return this.api.post<M.StoreLocation>('/inventory/stores', body); }
+  updateStore(id: number, body: unknown) { return this.api.put<M.StoreLocation>(`/inventory/stores/${id}`, body); }
+
+  transactions(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.StockTransaction>>('/inventory/transactions', params); }
+  postTransaction(body: unknown) { return this.api.post<M.StockTransaction>('/inventory/transactions', body); }
+
+  balancesForStore(storeId: number) { return this.api.get<M.StockBalance[]>(`/inventory/balances/store/${storeId}`); }
+  balancesForItem(itemId: number) { return this.api.get<M.StockBalance[]>(`/inventory/balances/item/${itemId}`); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class FuelApi {
+  private api = inject(ApiService);
+  list(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.FuelTransaction>>('/fuel', params); }
+  get(id: number) { return this.api.get<M.FuelTransaction>(`/fuel/${id}`); }
+  purchase(body: unknown) { return this.api.post<M.FuelTransaction>('/fuel/purchase', body); }
+  issue(body: unknown) { return this.api.post<M.FuelTransaction>('/fuel/issue', body); }
+}
+
+@Injectable({ providedIn: 'root' })
 export class AdminApi {
   private api = inject(ApiService);
   users(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.UserSummary>>('/users', params); }

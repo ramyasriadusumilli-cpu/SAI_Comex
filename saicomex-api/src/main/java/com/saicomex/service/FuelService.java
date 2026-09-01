@@ -6,6 +6,7 @@ import com.saicomex.dto.FuelDtos.FuelDetail;
 import com.saicomex.dto.FuelDtos.FuelIssueRequest;
 import com.saicomex.dto.FuelDtos.FuelPurchaseRequest;
 import com.saicomex.dto.InventoryDtos.TransactionRequest;
+import com.saicomex.dto.PageResponse;
 import com.saicomex.entity.Company;
 import com.saicomex.entity.FuelTransaction;
 import com.saicomex.entity.InventoryItem;
@@ -17,6 +18,7 @@ import com.saicomex.repository.FuelTransactionRepository;
 import com.saicomex.repository.InventoryItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -169,6 +171,15 @@ public class FuelService {
         permissions.require("fuel.view");
         return toDetail(fuelRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> NotFoundException.of("FuelTransaction", id)));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<FuelDetail> list(Long shaftId, String fuelType, String type, Long equipmentId,
+                                         LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        permissions.require("fuel.view");
+        return PageResponse.of(
+                fuelRepository.search(shaftId, blank(fuelType), blank(type), equipmentId, from, to, pageable),
+                FuelService::toDetail);
     }
 
     // -------------------------------------------------------------- helpers
