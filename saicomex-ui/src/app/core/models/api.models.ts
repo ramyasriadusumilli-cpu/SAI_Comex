@@ -867,3 +867,111 @@ export interface PoDetail {
   notes?: string;
   lines: PoLineDetail[];
 }
+
+// ------------------------------------------------------------ Phase 3: Equipment & maintenance
+
+export interface EquipmentSummary {
+  id: number;
+  assetNumber: string;
+  name: string;
+  equipmentType: string;
+  status: string;
+  shaftId?: number;
+  operatingHours: number;
+}
+
+export interface EquipmentDetail {
+  id: number;
+  assetNumber: string;
+  name: string;
+  equipmentType: string;
+  description?: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  registrationNumber?: string;
+  yearOfManufacture?: number;
+  purchaseDate?: string;
+  purchaseCost?: number;
+  purchaseCurrency?: string;
+  currentValue?: number;
+  ownership: string;
+  ownerPartnerId?: number;
+  supplierId?: number;
+  projectId?: number;
+  miningOperationId?: number;
+  shaftId?: number;
+  operatorEmployeeId?: number;
+  operatingHours: number;
+  serviceIntervalHours?: number;
+  nextServiceDate?: string;
+  insuranceExpiry?: string;
+  licenceExpiry?: string;
+  status: string;
+  notes?: string;
+}
+
+export interface AllocationDetail {
+  id: number;
+  projectId: number;
+  miningOperationId?: number;
+  shaftId?: number;
+  fromDate: string;
+  toDate?: string;
+  operatorEmployeeId?: number;
+  openingHours?: number;
+  closingHours?: number;
+  hireRate?: number;
+  hireRateUnit?: string;
+  reason?: string;
+  createdBy?: string;
+}
+
+export interface MaintenancePartDetail {
+  id: number;
+  itemId?: number;
+  description: string;
+  quantity: number;
+  unitCost?: number;
+  totalCost?: number;
+}
+
+export interface MaintenanceSummary {
+  id: number;
+  jobNumber: string;
+  equipmentId: number;
+  maintenanceType: string;
+  priority: string;
+  serviceDate?: string;
+  totalCost: number;
+  status: string;
+}
+
+export interface MaintenanceDetail {
+  id: number;
+  jobNumber: string;
+  equipmentId: number;
+  maintenanceType: string;
+  priority: string;
+  reportedDate?: string;
+  serviceDate?: string;
+  completedDate?: string;
+  nextServiceDate?: string;
+  hourMeterReading?: number;
+  description: string;
+  workPerformed?: string;
+  technicianName?: string;
+  supplierId?: number;
+  partsCost: number;
+  labourCost: number;
+  otherCost: number;
+  totalCost: number;
+  currency?: string;
+  expenseId?: number;
+  downtimeHours: number;
+  projectId?: number;
+  shaftId?: number;
+  status: string;
+  notes?: string;
+  parts: MaintenancePartDetail[];
+}

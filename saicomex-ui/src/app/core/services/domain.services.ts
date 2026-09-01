@@ -167,6 +167,28 @@ export class PurchaseOrderApi {
 }
 
 @Injectable({ providedIn: 'root' })
+export class EquipmentApi {
+  private api = inject(ApiService);
+  list(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.EquipmentSummary>>('/equipment', params); }
+  get(id: number) { return this.api.get<M.EquipmentDetail>(`/equipment/${id}`); }
+  create(body: unknown) { return this.api.post<M.EquipmentDetail>('/equipment', body); }
+  update(id: number, body: unknown) { return this.api.put<M.EquipmentDetail>(`/equipment/${id}`, body); }
+  allocate(id: number, body: unknown) { return this.api.post<M.EquipmentDetail>(`/equipment/${id}/allocate`, body); }
+  allocations(id: number) { return this.api.get<M.AllocationDetail[]>(`/equipment/${id}/allocations`); }
+  setStatus(id: number, status: string, reason?: string) { return this.api.patch<M.EquipmentDetail>(`/equipment/${id}/status`, { status, reason }); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class MaintenanceApi {
+  private api = inject(ApiService);
+  list(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.MaintenanceSummary>>('/maintenance', params); }
+  get(id: number) { return this.api.get<M.MaintenanceDetail>(`/maintenance/${id}`); }
+  create(body: unknown) { return this.api.post<M.MaintenanceDetail>('/maintenance', body); }
+  update(id: number, body: unknown) { return this.api.put<M.MaintenanceDetail>(`/maintenance/${id}`, body); }
+  setStatus(id: number, status: string, reason?: string) { return this.api.patch<M.MaintenanceDetail>(`/maintenance/${id}/status`, { status, reason }); }
+}
+
+@Injectable({ providedIn: 'root' })
 export class AdminApi {
   private api = inject(ApiService);
   users(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.UserSummary>>('/users', params); }

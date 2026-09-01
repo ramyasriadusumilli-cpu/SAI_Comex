@@ -181,6 +181,17 @@ export const routes: Routes = [
       },
 
       {
+        path: 'equipment',
+        canActivate: [permissionGuard('equipment.view')],
+        loadComponent: () => import('./pages/equipment/equipment-list').then(m => m.EquipmentListPage),
+      },
+      {
+        path: 'maintenance',
+        canActivate: [permissionGuard('maintenance.view')],
+        loadComponent: () => import('./pages/equipment/maintenance-list').then(m => m.MaintenanceListPage),
+      },
+
+      {
         path: 'users',
         canActivate: [permissionGuard('users.view')],
         loadComponent: () => import('./pages/admin/user-list').then(m => m.UserListPage),

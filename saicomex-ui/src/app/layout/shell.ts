@@ -192,6 +192,13 @@ export class Shell {
       ],
     },
     {
+      label: 'Equipment',
+      items: [
+        { label: 'Equipment', icon: 'production', route: '/equipment', permission: 'equipment.view' },
+        { label: 'Maintenance', icon: 'settings', route: '/maintenance', permission: 'maintenance.view' },
+      ],
+    },
+    {
       label: 'Commercial',
       items: [
         { label: 'Partners', icon: 'handshake', route: '/partners', permission: 'partners.view' },
