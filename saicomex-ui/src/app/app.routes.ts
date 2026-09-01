@@ -169,6 +169,16 @@ export const routes: Routes = [
         canActivate: [permissionGuard('fuel.view')],
         loadComponent: () => import('./pages/inventory/fuel-list').then(m => m.FuelListPage),
       },
+      {
+        path: 'suppliers',
+        canActivate: [permissionGuard('suppliers.view')],
+        loadComponent: () => import('./pages/inventory/supplier-list').then(m => m.SupplierListPage),
+      },
+      {
+        path: 'purchase-orders',
+        canActivate: [permissionGuard('inventory.view')],
+        loadComponent: () => import('./pages/inventory/po-list').then(m => m.PurchaseOrderListPage),
+      },
 
       {
         path: 'users',

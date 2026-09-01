@@ -187,6 +187,8 @@ export class Shell {
         { label: 'Stores', icon: 'folder', route: '/inventory/stores', permission: 'inventory.view' },
         { label: 'Stock', icon: 'balance', route: '/inventory/stock', permission: 'inventory.view' },
         { label: 'Fuel', icon: 'sell', route: '/fuel', permission: 'fuel.view' },
+        { label: 'Suppliers', icon: 'handshake', route: '/suppliers', permission: 'suppliers.view' },
+        { label: 'Purchase Orders', icon: 'receipt', route: '/purchase-orders', permission: 'inventory.view' },
       ],
     },
     {

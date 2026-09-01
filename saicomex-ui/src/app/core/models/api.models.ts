@@ -801,3 +801,69 @@ export interface FuelTransaction {
   reference?: string;
   createdBy?: string;
 }
+
+export interface SupplierOption {
+  id: number;
+  code: string;
+  name: string;
+  supplierType?: string;
+}
+
+export interface SupplierDetail {
+  id: number;
+  code: string;
+  name: string;
+  supplierType?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  taxNumber?: string;
+  paymentTerms?: string;
+  defaultCurrency?: string;
+  status: string;
+  notes?: string;
+}
+
+export interface PoLineDetail {
+  id: number;
+  lineNo: number;
+  itemId?: number;
+  description: string;
+  quantity: number;
+  receivedQuantity: number;
+  unit?: string;
+  unitCost: number;
+  lineTotal: number;
+}
+
+export interface PoSummary {
+  id: number;
+  poNumber: string;
+  supplierId: number;
+  orderDate: string;
+  expectedDate?: string;
+  currency: string;
+  totalAmount: number;
+  status: string;
+}
+
+export interface PoDetail {
+  id: number;
+  poNumber: string;
+  supplierId: number;
+  projectId?: number;
+  shaftId?: number;
+  storeId?: number;
+  orderDate: string;
+  expectedDate?: string;
+  currency: string;
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  status: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+  lines: PoLineDetail[];
+}

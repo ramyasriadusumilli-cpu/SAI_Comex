@@ -145,6 +145,28 @@ export class FuelApi {
 }
 
 @Injectable({ providedIn: 'root' })
+export class SupplierApi {
+  private api = inject(ApiService);
+  list(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.SupplierDetail>>('/suppliers', params); }
+  options() { return this.api.get<M.SupplierOption[]>('/suppliers/options'); }
+  create(body: unknown) { return this.api.post<M.SupplierDetail>('/suppliers', body); }
+  update(id: number, body: unknown) { return this.api.put<M.SupplierDetail>(`/suppliers/${id}`, body); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class PurchaseOrderApi {
+  private api = inject(ApiService);
+  list(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.PoSummary>>('/purchase-orders', params); }
+  get(id: number) { return this.api.get<M.PoDetail>(`/purchase-orders/${id}`); }
+  create(body: unknown) { return this.api.post<M.PoDetail>('/purchase-orders', body); }
+  update(id: number, body: unknown) { return this.api.put<M.PoDetail>(`/purchase-orders/${id}`, body); }
+  submit(id: number) { return this.api.post<M.PoDetail>(`/purchase-orders/${id}/submit`); }
+  approve(id: number) { return this.api.post<M.PoDetail>(`/purchase-orders/${id}/approve`); }
+  receive(id: number, body: unknown) { return this.api.post<M.PoDetail>(`/purchase-orders/${id}/receive`, body); }
+  cancel(id: number, reason?: string) { return this.api.post<M.PoDetail>(`/purchase-orders/${id}/cancel`, {}, { reason }); }
+}
+
+@Injectable({ providedIn: 'root' })
 export class AdminApi {
   private api = inject(ApiService);
   users(params?: Record<string, unknown>) { return this.api.get<M.PageResponse<M.UserSummary>>('/users', params); }
